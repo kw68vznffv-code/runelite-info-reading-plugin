@@ -318,7 +318,7 @@ public class ExamplePlugin extends Plugin
 		log.debug("================================");
 		log.debug("  Source name: {}", event.getName());           // e.g. "Great Olm", "Tekton", "Chambers of Xeric"
 		log.debug("  Loot type:   {}", event.getType());           // NPC, EVENT, PICKPOCKET, etc.
-		log.debug("  Meta data:   {}", event.getMetadata().toString());           // ??
+		log.debug("  Meta data:   {}", event.getMetadata() != null ? event.getMetadata().toString() : "null");           // ??
 		log.debug("  Items count: {}", event.getItems() != null ? event.getItems().size() : "null");
 
 		if (event.getItems() != null && !event.getItems().isEmpty())
@@ -389,7 +389,7 @@ public class ExamplePlugin extends Plugin
 					geNewPrice,
 					qty,
 					sourceName,  // use event.getName() instead of npc.getName()
-					event.getMetadata().toString(),  // or event.getNpcId() if available, else -1 for non-NPC
+					(event.getMetadata() == null ? "-1" : event.getMetadata().toString()),  // or event.getNpcId() if available, else -1 for non-NPC
 					Instant.now().atZone(ZoneOffset.UTC).format(UTC_FORMATTER)
 			);
 			lootList.add(entry);
