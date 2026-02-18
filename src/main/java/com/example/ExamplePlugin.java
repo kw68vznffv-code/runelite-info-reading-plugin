@@ -249,6 +249,15 @@ public class ExamplePlugin extends Plugin
 		NPC npc = event.getNpc();
 		Collection<ItemStack> lootItems = event.getItems();
 
+		log.debug("================================");
+		log.debug("=== NpcLootReceived event fired ===");
+		log.debug("================================");
+		log.debug("  Event class: {}", event.getClass().getName());
+		log.debug("  toString():  {}", event.toString());
+		log.debug("  NPC:         {}", npc != null ? npc.getName() + " (id=" + npc.getId() + ")" : "null");
+		log.debug("  Items count: {}", event.getItems() != null ? event.getItems().size() : "null");
+		log.debug("================================");
+
 		if (npc == null || lootItems == null || lootItems.isEmpty())
 		{
 			return;
@@ -299,6 +308,35 @@ public class ExamplePlugin extends Plugin
 	@Subscribe
 	public void onLootReceived(LootReceived event)
 	{
+		log.debug("================================");
+		log.debug("=== LootReceived event fired ===");
+		log.debug("================================");
+		log.debug("  Source name: {}", event.getName());           // e.g. "Great Olm", "Tekton", "Chambers of Xeric"
+		log.debug("  Loot type:   {}", event.getType());           // NPC, EVENT, PICKPOCKET, etc.
+		log.debug("  Meta data:   {}", event.getMetadata().toString());           // ??
+		log.debug("  Items count: {}", event.getItems() != null ? event.getItems().size() : "null");
+
+		if (event.getItems() != null && !event.getItems().isEmpty())
+		{
+			log.debug("  Items:");
+			for (ItemStack stack : event.getItems())
+			{
+				int id = stack.getId();
+				int qty = stack.getQuantity();
+				ItemComposition comp = itemManager.getItemComposition(id);
+				String name = comp != null ? comp.getName() : "Unknown item #" + id;
+
+				log.debug("    - {} x{} (id={}, gePrice={})",
+						name, qty, id, comp != null ? comp.getPrice() : "N/A");
+			}
+		}
+		else
+		{
+			log.debug("  No items in this event");
+		}
+		log.debug("================================");
+
+
 		// Optional: filter to only NPC or EVENT types (raids chests are often EVENT)
 		if (event.getType() != LootRecordType.EVENT)
 		{
