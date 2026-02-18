@@ -21,6 +21,7 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.http.api.item.ItemPrice;
 import net.runelite.http.api.loottracker.LootRecordType;
 
 import javax.inject.Inject;
@@ -243,6 +244,7 @@ public class ExamplePlugin extends Plugin
 		return panel;
 	}
 
+
 	@Subscribe
 	public void onNpcLootReceived(NpcLootReceived event)
 	{
@@ -325,12 +327,14 @@ public class ExamplePlugin extends Plugin
 			for (ItemStack stack : event.getItems())
 			{
 				int id = stack.getId();
+				int unnotedId = itemManager.canonicalize(id);
+
 				int qty = stack.getQuantity();
 				ItemComposition comp = itemManager.getItemComposition(id);
 				String name = comp != null ? comp.getName() : "Unknown item #" + id;
 
-				log.debug("    - {} x{} (id={}, gePrice={})",
-						name, qty, id, comp != null ? comp.getPrice() : "N/A");
+				log.debug("    - {} {}x{} (id={}, gePrice={}, nePrice={})",
+						name, ( id == unnotedId ? "" : "(noted)"), qty, id, comp != null ? comp.getPrice() : "N/A", ( itemManager.getItemPrice(id) ) );
 			}
 		}
 		else
@@ -365,6 +369,7 @@ public class ExamplePlugin extends Plugin
 		for (ItemStack stack : lootItems)
 		{
 			int itemId = stack.getId();
+			int unnotedId = itemManager.canonicalize(itemId);
 			int qty = stack.getQuantity();
 
 			ItemComposition comp = itemManager.getItemComposition(itemId);
@@ -372,13 +377,16 @@ public class ExamplePlugin extends Plugin
 
 			String itemName = comp.getName();
 			long gePrice = comp.getPrice();
+			long geNewPrice = itemManager.getItemPrice(itemId);
+
 			long itemValue = gePrice * qty;
 				totalValue += itemValue;
 
 			LootEntry entry = new LootEntry(
 					String.valueOf(itemId),
+					((itemId != unnotedId) ? 1 : 0),
 					itemName,
-					gePrice,
+					geNewPrice,
 					qty,
 					sourceName,  // use event.getName() instead of npc.getName()
 					event.getMetadata().toString(),  // or event.getNpcId() if available, else -1 for non-NPC
@@ -392,7 +400,9 @@ public class ExamplePlugin extends Plugin
 		LootData data = new LootData(playerName, clanName, lootList);
 		String json = gson.toJson(data);
 
-		log.info("Sending loot from {} ({} items, ~{}k gp)", sourceName, lootList.size(), totalValue / 1000);
+		log.info("Sending loot from {} ({} items, ~{} gp)", sourceName, lootList.size(), totalValue);
+		log.info("Sent data: {}", json);
+
 		sendLootAsync(json, totalValue);
 	}
 
@@ -469,6 +479,7 @@ public class ExamplePlugin extends Plugin
 	private static class LootEntry
 	{
 		String itemId;
+		int isNoted;
 		String itemName;
 		long itemPrice;
 		int itemQty;
@@ -476,10 +487,11 @@ public class ExamplePlugin extends Plugin
 		String monsterId;
 		String datetime;
 
-		LootEntry(String itemId, String itemName, long itemPrice, int itemQty,
+		LootEntry(String itemId, int isNoted, String itemName, long itemPrice, int itemQty,
 				  String monster, String monsterId, String datetime)
 		{
 			this.itemId = itemId;
+			this.isNoted = isNoted;
 			this.itemName = itemName;
 			this.itemPrice = itemPrice;
 			this.itemQty = itemQty;
