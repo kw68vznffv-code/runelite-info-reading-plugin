@@ -15,11 +15,13 @@ import net.runelite.client.game.ItemStack;
 import net.runelite.client.game.chatbox.ChatboxPanelManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.http.api.loottracker.LootRecordType;
 
 import javax.inject.Inject;
 import javax.swing.*;
@@ -292,6 +294,82 @@ public class ExamplePlugin extends Plugin
 
 		log.info("Sending loot ({} items, ~{}k gp)", lootList.size(), totalValue / 1000);
 		sendLootAsync(json, totalValue);
+	}
+
+	@Subscribe
+	public void onLootReceived(LootReceived event)
+	{
+		// Optional: filter to only NPC or EVENT types (raids chests are often EVENT)
+		if (event.getType() != LootRecordType.EVENT)
+		{
+			return;
+		}
+
+		String sourceName = event.getName(); // e.g., "Olmlet chest" or monster name
+		Collection<ItemStack> lootItems = event.getItems();
+
+		if (sourceName == null || lootItems == null || lootItems.isEmpty())
+		{
+			return;
+		}
+
+		String playerName = client.getLocalPlayer() != null ?
+				client.getLocalPlayer().getName() : "Unknown";
+
+		String clanName = getCurrentClanName();
+
+		List<LootEntry> lootList = new ArrayList<>();
+		long totalValue = 0;
+
+		for (ItemStack stack : lootItems)
+		{
+			int itemId = stack.getId();
+			int qty = stack.getQuantity();
+
+			ItemComposition comp = itemManager.getItemComposition(itemId);
+			if (comp == null) continue;
+
+			String itemName = comp.getName();
+			long gePrice = comp.getPrice();
+			long itemValue = gePrice * qty;
+				totalValue += itemValue;
+
+			LootEntry entry = new LootEntry(
+					String.valueOf(itemId),
+					itemName,
+					gePrice,
+					qty,
+					sourceName,  // use event.getName() instead of npc.getName()
+					String.valueOf(lookupNpcIdFromName(sourceName)),  // or event.getNpcId() if available, else -1 for non-NPC
+					Instant.now().atZone(ZoneOffset.UTC).format(UTC_FORMATTER)
+			);
+			lootList.add(entry);
+		}
+
+		if (lootList.isEmpty()) return;
+
+		LootData data = new LootData(playerName, clanName, lootList);
+		String json = gson.toJson(data);
+
+		log.info("Sending loot from {} ({} items, ~{}k gp)", sourceName, lootList.size(), totalValue / 1000);
+		sendLootAsync(json, totalValue);
+	}
+
+
+	private int lookupNpcIdFromName(String name) {
+		if (name == null) return -1;
+
+		name = name.toLowerCase();
+
+		if (name.contains("Chambers of Xeric") || name.contains("great olm")) return 7554; // Olm NPC ID
+		if (name.contains("tekton")) return 7548;
+		if (name.contains("ice demon")) return 7584;
+		if (name.contains("guardian")) return 7568; // Guardians (multiple variants)
+
+		// Add more as you test (use wiki or RuneLite's NPC ID list)
+		// Or leave as -1 for non-NPC sources like chests
+
+		return -1;
 	}
 
 	private void sendLootAsync(String json, long totalValue)
