@@ -250,7 +250,7 @@ public class ExamplePlugin extends Plugin
 		Collection<ItemStack> lootItems = event.getItems();
 
 		log.debug("================================");
-		log.debug("=== NpcLootReceived event fired ===");
+		log.debug("=== NpcLootReceived event fired (disable sending..) ===");
 		log.debug("================================");
 		log.debug("  Event class: {}", event.getClass().getName());
 		log.debug("  toString():  {}", event.toString());
@@ -258,6 +258,8 @@ public class ExamplePlugin extends Plugin
 		log.debug("  Items count: {}", event.getItems() != null ? event.getItems().size() : "null");
 		log.debug("================================");
 
+		return;
+		/*
 		if (npc == null || lootItems == null || lootItems.isEmpty())
 		{
 			return;
@@ -303,6 +305,7 @@ public class ExamplePlugin extends Plugin
 
 		log.info("Sending loot ({} items, ~{}k gp)", lootList.size(), totalValue / 1000);
 		sendLootAsync(json, totalValue);
+		 */
 	}
 
 	@Subscribe
@@ -338,7 +341,7 @@ public class ExamplePlugin extends Plugin
 
 
 		// Optional: filter to only NPC or EVENT types (raids chests are often EVENT)
-		if (event.getType() != LootRecordType.EVENT)
+		if (event.getType() != LootRecordType.EVENT && event.getType() != LootRecordType.NPC)
 		{
 			return;
 		}
@@ -378,7 +381,7 @@ public class ExamplePlugin extends Plugin
 					gePrice,
 					qty,
 					sourceName,  // use event.getName() instead of npc.getName()
-					String.valueOf(lookupNpcIdFromName(sourceName)),  // or event.getNpcId() if available, else -1 for non-NPC
+					event.getMetadata().toString(),  // or event.getNpcId() if available, else -1 for non-NPC
 					Instant.now().atZone(ZoneOffset.UTC).format(UTC_FORMATTER)
 			);
 			lootList.add(entry);
