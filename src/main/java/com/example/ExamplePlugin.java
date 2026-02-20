@@ -48,6 +48,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static net.runelite.api.gameval.VarbitID.RAIDS_CHALLENGE_MODE;
+
 @Slf4j
 @PluginDescriptor(
 		name = "Loot Tracker + Bingo",
@@ -181,10 +183,6 @@ public class ExamplePlugin extends Plugin
 		}
 		// overlayManager.remove(lootBingoOverlay);
 		overlayManager.remove(dialogOverlay);
-
-		if (currentCoxRaid != null) {
-			endCoxSession(true);  // save in-progress as aborted
-		}
 	}
 
 	private JPanel buildMainPanel()
@@ -535,201 +533,113 @@ public class ExamplePlugin extends Plugin
 
 
 
-	// CoX session tracking
-	private ChamberOfXeric currentCoxRaid = null;
-	private final List<ChamberOfXeric> coxSessions = new ArrayList<>();
 
 	// Varbit IDs (confirmed stable in RuneLite API as of recent versions)
-	private static final int VARB_IN_RAID        = 5432;  // 1 = inside any raid (CoX/ToB/ToA), but we cross-check source
-	private static final int VARB_RAID_STATE     = 5425;  // 0 = out, 1 = in progress, 2 = completed
-	private static final int VARB_PARTY_SIZE     = 5424;  // scaled party size
-	private static final int VARB_CM             = 5423;  // 1 = challenge mode
-	private static final int VARB_TOTAL_POINTS   = 5431;  // team total points
-
-	private Instant coxStartTime = null;
-	private int lastRaidState = 0;
-
-	private List<String> getPartyMembers() {
-		List<String> members = new ArrayList<>();
-//		ClanChannel fc = client.getFriendsChatManager() != null ?
-//				client.getFriendsChatManager().getMembers() : null;
-//			if (fc != null) {
-//				fc.getMembers().forEach(m -> {
-//					if (m != null && m.getName() != null) {
-//						members.add(m.getName());
-//					}
-//				});
-//			}
-		return members;
-	}
 
 	private int IsRaidInProgress = 0;
 	private int LastRaidState = 0;
 	private int personalPoints = 0;
 
+	private Instant coxStartTime = null;
+	private Instant coxLastSeenTime = null;
+	private Duration coxDuration = null;
+
+	public static final int RAIDS_CLIENT_ISLEADER = 5423;
+	public static final int RAIDS_CLIENT_PARTYSIZE = 5424;
+	public static final int RAIDS_CLIENT_PROGRESS = 5425;
+	public static final int RAIDS_LOBBY_MINCOMBAT = 5426;
+	public static final int RAIDS_LOBBY_MINSKILLTOTAL = 5427;
+	public static final int RAIDS_CLIENT_PARTYSCORE = 5431;
+	public static final int RAIDS_CLIENT_REWARDINDICATOR = 5456;
+	public static final int RAIDS_CHALLENGE_MODE = 6385;
+	public static final int RAIDS_CLIENT_CHANNELMEMBER = 5428;
+	public static final int RAIDS_CLIENT_INDUNGEON = 5432;
+	public static final int RAIDS_LOBBY_PARTYSIZE = 5433;
+	public static final int RAIDS_CLIENT_NEEDSREWARDBOOK = 5457;
+	public static final int RAIDS_SCALING = 9539;
+	public static final int RAIDS_CLIENT_PARTYSIZE_SCALED = 9540;
+	public static final int RAIDS_CLIENT_HIGHESTCOMBAT = 12285;
+
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
 		// Only care about CoX-related varbits
-		int inRaid = client.getVarbitValue(VARB_IN_RAID);
-		int raidState = client.getVarbitValue(VARB_RAID_STATE);
+		int inRaid = client.getVarbitValue(RAIDS_CLIENT_ISLEADER);
+		int raidState = client.getVarbitValue(RAIDS_CLIENT_PROGRESS);
+
+		int raidDifficulty = client.getVarbitValue(RAIDS_CHALLENGE_MODE);
+		int raidLeadership = client.getVarbitValue(RAIDS_CLIENT_ISLEADER);
+		int raidPartySize = client.getVarbitValue(RAIDS_CLIENT_PARTYSIZE);  // scaled party size
+		int totalPts = client.getVarbitValue(RAIDS_CLIENT_PARTYSCORE);  // scaled party size
+
+		int minSkillReq = client.getVarbitValue(RAIDS_LOBBY_MINSKILLTOTAL);  // scaled party size
+		int minCmbReq = client.getVarbitValue(RAIDS_LOBBY_MINCOMBAT);  // scaled party size
+		int highestCmbReq = client.getVarbitValue(RAIDS_CLIENT_HIGHESTCOMBAT);  // scaled party size
+		int rewardIndicator = client.getVarbitValue(RAIDS_CLIENT_REWARDINDICATOR);  // scaled party size
+
 
 		if( IsRaidInProgress != inRaid ){
 			// reset if starting
 			if( IsRaidInProgress == 0 && inRaid == 1 ){
 				personalPoints = 0;
+				coxStartTime = Instant.now();
 			}
 			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
-
-			int raidDifficulty = client.getVarbitValue(VARB_CM);
-			int raidPartySize = client.getVarbitValue(VARB_PARTY_SIZE);  // scaled party size
-			int totalPts = client.getVarbitValue(VARB_TOTAL_POINTS);  // scaled party size
 			//
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "---- IsRaidInProgress", null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Raid Progress Changed: "+IsRaidInProgress+" -> "+inRaid, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "RaidState: "+LastRaidState+" -> "+raidState, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "CM: "+raidDifficulty, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Party Size: "+raidPartySize, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Total pts: "+, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "----", null);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
 					+", RaidState <col=ef20ff>"+LastRaidState+" -> "+raidState+"</col>"
 					+", CM <col=ef20ff>"+raidDifficulty+"</col>"
+					+", Leader <col=ef20ff>"+raidLeadership+"</col>"
+					+", Diff <col=ef20ff>"+(minSkillReq+"/"+minCmbReq+"-"+highestCmbReq)+"</col>"
 					+", PartySize <col=ef20ff>"+raidPartySize+"</col>"
+					+", RewId <col=ef20ff>"+rewardIndicator+"</col>"
 					+", Personal <col=ef20ff>"+personalPoints+"</col>"
-					+", Total <col=ef20ff>"+totalPts+"</col>", null);
+					+", Total <col=ef20ff>"+totalPts+"</col>"
+					+", Time <col=ef20ff>"+(coxDuration!=null?coxDuration.toString():0)+"</col>", null);
 
 			//
 			IsRaidInProgress = inRaid;
+		} else if( IsRaidInProgress == 1 ) {
+			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
+			coxLastSeenTime = Instant.now();
 		}
 
 		if( LastRaidState != raidState ){
-			int raidDifficulty = client.getVarbitValue(VARB_CM);
-			int raidPartySize = client.getVarbitValue(VARB_PARTY_SIZE);  // scaled party size
-			int totalPts = client.getVarbitValue(VARB_TOTAL_POINTS);  // scaled party size
+			// started raid
+			if(inRaid == 1 && LastRaidState == 0 && raidState == 1){
+				coxStartTime = Instant.now();
+			} else {
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[State.Duration] <col=ef20ff>"+(coxDuration!=null?coxDuration.toString():0)+"</col>", null);
+			}
+
+			if( coxStartTime != null && coxLastSeenTime != null ) {
+				coxDuration = Duration.between(coxStartTime, coxLastSeenTime);
+			}
+			if( inRaid == 1 && LastRaidState == 3 && raidState == 4 ){
+				// completed
+			}
+
+			if( inRaid == 1 && LastRaidState < 3 && raidState == 5 ) {
+				// left raid
+			}
+
+			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
 			//
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "---- LastRaidState", null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Raid Progress Changed: "+IsRaidInProgress+" -> "+inRaid, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "RaidState: "+LastRaidState+" -> "+raidState, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "CM: "+raidDifficulty, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Party Size: "+raidPartySize, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Total pts: "+totalPts, null);
-			//	client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "----", null);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[State] Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
 					+", RaidState <col=ef20ff>"+LastRaidState+" -> "+raidState+"</col>"
 					+", CM <col=ef20ff>"+raidDifficulty+"</col>"
+					+", Leader <col=ef20ff>"+raidLeadership+"</col>"
+					+", Diff <col=ef20ff>"+(minSkillReq+"/"+minCmbReq+"-"+highestCmbReq)+"</col>"
 					+", PartySize <col=ef20ff>"+raidPartySize+"</col>"
+					+", RewId <col=ef20ff>"+rewardIndicator+"</col>"
 					+", Personal <col=ef20ff>"+personalPoints+"</col>"
-					+", Total <col=ef20ff>"+totalPts+"</col>", null);
+					+", Total <col=ef20ff>"+totalPts+"</col>"
+					+", Time <col=ef20ff>"+(coxDuration!=null?coxDuration.toString():0)+"</col>", null);
 			//
 			LastRaidState = raidState;
 		}
 
-
-		if (inRaid != 1) {
-			// Not in any raid → reset if we thought we were
-			if (currentCoxRaid != null) {
-				log.warn("Left raid unexpectedly - marking as aborted");
-				endCoxSession(true);
-			}
-			return;
-		}
-
-		int cm = client.getVarbitValue(VARB_CM);
-		boolean isCM = cm == 1;
-
-		if (raidState == 1 && lastRaidState != 1) {
-			// Raid START
-			coxStartTime = Instant.now();
-
-			currentCoxRaid = new ChamberOfXeric(
-					isCM,
-					"In Progress",
-					coxStartTime,
-					null,
-					client.getVarbitValue(VARB_PARTY_SIZE),
-					getPartyMembers(),
-					-1,
-					client.getVarbitValue(VARB_TOTAL_POINTS)
-			);
-
-			log.debug("================================");
-			log.debug("=== CoX raid started ===");
-			log.debug("================================");
-			log.info("{}", currentCoxRaid.getRaidType());
-			log.debug("================================");
-		}
-		else if (raidState == 2 && lastRaidState == 1) {
-			// Raid COMPLETED (points screen shown)
-			endCoxSession(false);
-		}
-		else if (raidState == 0 && currentCoxRaid != null) {
-			// Left / aborted
-			endCoxSession(true);
-		}
-
-		lastRaidState = raidState;
 	}
 
-
-	private void endCoxSession(boolean aborted) {
-		if (currentCoxRaid == null || coxStartTime == null) return;
-
-		Instant now = Instant.now();
-		int finalPersonal = 0;
-		int finalTotal = client.getVarbitValue(VARB_TOTAL_POINTS);
-
-		ChamberOfXeric finished = new ChamberOfXeric(
-				currentCoxRaid.isChallengeMode(),
-				aborted ? "Aborted" : "Completed",
-				coxStartTime,
-				now,
-				currentCoxRaid.getPartySize(),
-				currentCoxRaid.getPartyMembers(),
-				finalPersonal,
-				finalTotal
-		);
-
-		coxSessions.add(finished);
-		log.info("CoX session ended: {}", finished);
-
-		// Optional: log JSON immediately
-		String json = gson.toJson(finished.toJsonView());
-		log.info("CoX session JSON: {}", json);
-
-		log.debug("================================");
-		log.debug("=== CoX raid completed ===");
-		log.debug("================================");
-		log.info("{}", json);
-		log.debug("================================");
-
-		// TODO: send to your API if you want (similar to sendLootAsync)
-		// sendCoxSessionAsync(json);
-
-		currentCoxRaid = null;
-		coxStartTime = null;
-	}
-
-
-	@Subscribe
-	public void onChatMessage(net.runelite.api.events.ChatMessage event) {
-		if (currentCoxRaid == null) return;
-
-		if (event.getType() == ChatMessageType.GAMEMESSAGE ||
-				event.getType() == ChatMessageType.SPAM) {
-
-			String msg = event.getMessage();
-			if (msg.contains("personal point")) {
-				// Example: "You have earned 12,345 personal points."
-				try {
-					String numStr = msg.replaceAll("[^0-9]", "");
-					personalPoints = Integer.parseInt(numStr);
-					log.debug("Parsed personal points: {}", personalPoints);
-				} catch (Exception e) {
-					log.warn("Failed to parse personal points from: {}", msg);
-				}
-			}
-		}
-	}
 
 
 
