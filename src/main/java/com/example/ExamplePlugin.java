@@ -405,7 +405,31 @@ public class ExamplePlugin extends Plugin
 
 		if (lootList.isEmpty()) return;
 
-		LootData data = new LootData(playerName, clanName, lootList);
+
+		int inRaid = client.getVarbitValue(RAIDS_CLIENT_ISLEADER);
+		int raidState = client.getVarbitValue(RAIDS_CLIENT_PROGRESS);
+
+
+		EventDetails eventData = null;
+		//
+		//	COX event details data
+ 		//
+		//
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[Loot taken] In Raid? <col=ef20ff>"+inRaid+"</col>(Raid state: <col=ef20ff>"+raidState+"</col>)", null);
+		if( inRaid == 1 && raidState == 5 ) {
+			int raidPartySize = client.getVarbitValue(RAIDS_CLIENT_PARTYSIZE);
+			int totalPts = client.getVarbitValue(RAIDS_CLIENT_PARTYSCORE);  // scaled party size
+			//
+			eventData = new EventDetails(
+					"Chambers of Xeric",
+					coxStartTime,
+					coxLastSeenTime,
+					raidPartySize,
+					personalPoints,
+					totalPts
+			);
+		}
+		LootData data = new LootData(playerName, clanName, lootList, eventData);
 		String json = gson.toJson(data);
 
 		log.info("Sending loot from {} ({} items, ~{} gp)", sourceName, lootList.size(), totalValue);
@@ -514,8 +538,17 @@ public class ExamplePlugin extends Plugin
 		String playerName;
 		String clanName;
 		List<LootEntry> lootReceived;
-		LootData(String playerName, String clanName, List<LootEntry> lootReceived)
+		EventDetails eventDetais = null;
+
+		LootData(String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais)
 		{
+			this.playerName = playerName;
+			this.clanName = clanName;
+			this.lootReceived = lootReceived;
+			this.eventDetais = eventDetais;
+		}
+
+		public LootData(String playerName, String clanName, List<LootEntry> lootReceived) {
 			this.playerName = playerName;
 			this.clanName = clanName;
 			this.lootReceived = lootReceived;
@@ -524,6 +557,31 @@ public class ExamplePlugin extends Plugin
 
 
 
+
+
+	private static class EventDetails {
+		String eventName;
+		Instant eventStartTime;
+		Instant eventEndedTime;
+		int teamSize = 1;
+		int personalPoints = 0;
+		int totalPoints = 0;
+
+		EventDetails(String eventName, Instant eventStartTime, Instant eventEndedTime){
+			this.eventName = eventName;
+			this.eventStartTime = eventStartTime;
+			this.eventEndedTime = eventEndedTime;
+		}
+
+		EventDetails(String eventName, Instant eventStartTime, Instant eventEndedTime, int teamSize, int personalPoints, int totalPoints){
+			this.eventName = eventName;
+			this.eventStartTime = eventStartTime;
+			this.eventEndedTime = eventEndedTime;
+			this.teamSize = teamSize;
+			this.personalPoints = personalPoints;
+			this.totalPoints = totalPoints;
+		}
+	}
 
 
 
@@ -583,6 +641,13 @@ public class ExamplePlugin extends Plugin
 				personalPoints = 0;
 				coxStartTime = Instant.now();
 			}
+
+			if( IsRaidInProgress == 0 && LastRaidState == 5 && raidState == 0 ){
+				personalPoints = 0;
+				coxStartTime = Instant.now();
+			}
+
+
 			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
 			//
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
