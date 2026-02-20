@@ -8,8 +8,6 @@ import net.runelite.api.clan.ClanChannel;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetID;
 import net.runelite.client.Notifier;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.NpcLootReceived;
@@ -24,7 +22,6 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.http.api.item.ItemPrice;
 import net.runelite.http.api.loottracker.LootRecordType;
 
 
@@ -47,8 +44,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static net.runelite.api.gameval.VarbitID.RAIDS_CHALLENGE_MODE;
 
 @Slf4j
 @PluginDescriptor(
@@ -253,6 +248,18 @@ public class ExamplePlugin extends Plugin
 	}
 
 
+	private String raid_status_name( int raid_state ){
+		switch (raid_state){
+			case 0: return "Lobby";
+            case 1: return "Started";
+			case 2: return "1st floor";
+			case 3: return "2st floor";
+			case 4: return "Final boss!";
+			case 5: return "Left Chambers Of Xeric.";
+			default: return String.valueOf(raid_state);
+		}
+	}
+
 	@Subscribe
 	public void onNpcLootReceived(NpcLootReceived event)
 	{
@@ -317,6 +324,7 @@ public class ExamplePlugin extends Plugin
 		sendLootAsync(json, totalValue);
 		 */
 	}
+	private int EVENTID_CHAMBERS_OF_XERICS = 1;
 
 	@Subscribe
 	public void onLootReceived(LootReceived event)
@@ -415,12 +423,14 @@ public class ExamplePlugin extends Plugin
 		//	COX event details data
  		//
 		//
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[Loot taken] In Raid? <col=ef20ff>"+inRaid+"</col>(Raid state: <col=ef20ff>"+raidState+"</col>)", null);
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[LootReceived] In Raid? <col=ef20ff>"+inRaid+"</col>(Raid state: <col=ef20ff>"+raidState+"</col>)", null);
 		if( inRaid == 1 && raidState == 5 ) {
 			int raidPartySize = client.getVarbitValue(RAIDS_CLIENT_PARTYSIZE);
 			int totalPts = client.getVarbitValue(RAIDS_CLIENT_PARTYSCORE);  // scaled party size
 			//
 			eventData = new EventDetails(
+					client.getWorld(),
+					EVENTID_CHAMBERS_OF_XERICS,
 					"Chambers of Xeric",
 					coxStartTime,
 					coxLastSeenTime,
@@ -438,22 +448,6 @@ public class ExamplePlugin extends Plugin
 		sendLootAsync(json, totalValue);
 	}
 
-
-	private int lookupNpcIdFromName(String name) {
-		if (name == null) return -1;
-
-		name = name.toLowerCase();
-
-		if (name.contains("Chambers of Xeric") || name.contains("great olm")) return 7554; // Olm NPC ID
-		if (name.contains("tekton")) return 7548;
-		if (name.contains("ice demon")) return 7584;
-		if (name.contains("guardian")) return 7568; // Guardians (multiple variants)
-
-		// Add more as you test (use wiki or RuneLite's NPC ID list)
-		// Or leave as -1 for non-NPC sources like chests
-
-		return -1;
-	}
 
 	private void sendLootAsync(String json, long totalValue)
 	{
@@ -560,23 +554,35 @@ public class ExamplePlugin extends Plugin
 
 
 	private static class EventDetails {
+		int eventId = -1;
+		int eventWorld = -1;
 		String eventName;
-		Instant eventStartTime;
-		Instant eventEndedTime;
+		String eventStartTime;
+		String eventEndedTime;
+		long eventDuration = 0;
 		int teamSize = 1;
 		int personalPoints = 0;
 		int totalPoints = 0;
 
-		EventDetails(String eventName, Instant eventStartTime, Instant eventEndedTime){
+		EventDetails(int eventWorld, int eventId, String eventName, Instant eventStartTime, Instant eventEndedTime){
+			this.eventId = eventId;
+			this.eventWorld = eventWorld;
 			this.eventName = eventName;
-			this.eventStartTime = eventStartTime;
-			this.eventEndedTime = eventEndedTime;
+			// duration
+			this.eventStartTime = eventStartTime.toString();
+			this.eventEndedTime = eventEndedTime.toString();
+			this.eventDuration = Duration.between(eventStartTime, eventEndedTime).toSeconds();
 		}
 
-		EventDetails(String eventName, Instant eventStartTime, Instant eventEndedTime, int teamSize, int personalPoints, int totalPoints){
+		EventDetails(int eventWorld, int eventId, String eventName, Instant eventStartTime, Instant eventEndedTime, int teamSize, int personalPoints, int totalPoints){
+			this.eventId = eventId;
+			this.eventWorld = eventWorld;
 			this.eventName = eventName;
-			this.eventStartTime = eventStartTime;
-			this.eventEndedTime = eventEndedTime;
+			// duration
+			this.eventStartTime = eventStartTime.toString();
+			this.eventEndedTime = eventEndedTime.toString();
+			this.eventDuration = Duration.between(eventStartTime, eventEndedTime).toSeconds();
+			// details
 			this.teamSize = teamSize;
 			this.personalPoints = personalPoints;
 			this.totalPoints = totalPoints;
@@ -650,10 +656,8 @@ public class ExamplePlugin extends Plugin
 
 			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
 			//
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
-					+", RaidState <col=ef20ff>"+LastRaidState+" -> "+raidState+"</col>"
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>"+raid_status_name(raidState)+"</col>"
 					+", CM <col=ef20ff>"+raidDifficulty+"</col>"
-					+", Leader <col=ef20ff>"+raidLeadership+"</col>"
 					+", Diff <col=ef20ff>"+(minSkillReq+"/"+minCmbReq+"-"+highestCmbReq)+"</col>"
 					+", PartySize <col=ef20ff>"+raidPartySize+"</col>"
 					+", RewId <col=ef20ff>"+rewardIndicator+"</col>"
@@ -673,7 +677,7 @@ public class ExamplePlugin extends Plugin
 			if(inRaid == 1 && LastRaidState == 0 && raidState == 1){
 				coxStartTime = Instant.now();
 			} else {
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "[State.Duration] <col=ef20ff>"+(coxDuration!=null?coxDuration.toString():0)+"</col>", null);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>[Duration]</col> "+(coxDuration!=null?coxDuration.toSeconds():0)+" s.", null);
 			}
 
 			if( coxStartTime != null && coxLastSeenTime != null ) {
@@ -689,16 +693,14 @@ public class ExamplePlugin extends Plugin
 
 			personalPoints = client.getVarpValue(VarPlayer.RAIDS_PERSONAL_POINTS);
 			//
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Loby state <col=ef20ff>"+IsRaidInProgress+" -> "+inRaid+"</col>"
-					+", RaidState <col=ef20ff>"+LastRaidState+" -> "+raidState+"</col>"
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>"+raid_status_name(raidState)+"</col>"
 					+", CM <col=ef20ff>"+raidDifficulty+"</col>"
-					+", Leader <col=ef20ff>"+raidLeadership+"</col>"
 					+", Diff <col=ef20ff>"+(minSkillReq+"/"+minCmbReq+"-"+highestCmbReq)+"</col>"
 					+", PartySize <col=ef20ff>"+raidPartySize+"</col>"
 					+", RewId <col=ef20ff>"+rewardIndicator+"</col>"
 					+", Personal <col=ef20ff>"+personalPoints+"</col>"
 					+", Total <col=ef20ff>"+totalPts+"</col>"
-					+", Time <col=ef20ff>"+(coxDuration!=null?coxDuration.toString():0)+"</col>", null);
+					+", Time <col=ef20ff>"+(coxDuration!=null?coxDuration.toSeconds():0)+"s</col>", null);
 			//
 			LastRaidState = raidState;
 		}

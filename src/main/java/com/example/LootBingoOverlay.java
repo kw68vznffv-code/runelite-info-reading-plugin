@@ -6,7 +6,6 @@ import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class LootBingoOverlay extends OverlayPanel
