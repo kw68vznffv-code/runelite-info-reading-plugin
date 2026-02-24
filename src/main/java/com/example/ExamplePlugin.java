@@ -392,6 +392,7 @@ public class ExamplePlugin extends Plugin
 			if (comp == null) continue;
 
 			String itemName = comp.getName();
+			int isTradable = comp.isTradeable() ? 1 : 0;
 			long gePrice = comp.getPrice();
 			long geNewPrice = itemManager.getItemPrice(itemId);
 
@@ -401,6 +402,7 @@ public class ExamplePlugin extends Plugin
 			LootEntry entry = new LootEntry(
 					String.valueOf(itemId),
 					((itemId != unnotedId) ? 1 : 0),
+					isTradable,
 					itemName,
 					geNewPrice,
 					qty,
@@ -439,7 +441,7 @@ public class ExamplePlugin extends Plugin
 					totalPts
 			);
 		}
-		LootData data = new LootData(playerName, clanName, lootList, eventData);
+		LootData data = new LootData(client.getWorld(), playerName, clanName, lootList, eventData);
 		String json = gson.toJson(data);
 
 		log.info("Sending loot from {} ({} items, ~{} gp)", sourceName, lootList.size(), totalValue);
@@ -506,6 +508,7 @@ public class ExamplePlugin extends Plugin
 	{
 		String itemId;
 		int isNoted;
+		int isTradable;
 		String itemName;
 		long itemPrice;
 		int itemQty;
@@ -513,11 +516,12 @@ public class ExamplePlugin extends Plugin
 		String monsterId;
 		String datetime;
 
-		LootEntry(String itemId, int isNoted, String itemName, long itemPrice, int itemQty,
+		LootEntry(String itemId, int isNoted, int isTradable, String itemName, long itemPrice, int itemQty,
 				  String monster, String monsterId, String datetime)
 		{
 			this.itemId = itemId;
 			this.isNoted = isNoted;
+			this.isTradable = isTradable;
 			this.itemName = itemName;
 			this.itemPrice = itemPrice;
 			this.itemQty = itemQty;
@@ -529,20 +533,23 @@ public class ExamplePlugin extends Plugin
 
 	private static class LootData
 	{
+		int world = -1;
 		String playerName;
 		String clanName;
 		List<LootEntry> lootReceived;
 		EventDetails eventDetais = null;
 
-		LootData(String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais)
+		LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais)
 		{
+			this.world = world;
 			this.playerName = playerName;
 			this.clanName = clanName;
 			this.lootReceived = lootReceived;
 			this.eventDetais = eventDetais;
 		}
 
-		public LootData(String playerName, String clanName, List<LootEntry> lootReceived) {
+		public LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived) {
+			this.world = world;
 			this.playerName = playerName;
 			this.clanName = clanName;
 			this.lootReceived = lootReceived;
