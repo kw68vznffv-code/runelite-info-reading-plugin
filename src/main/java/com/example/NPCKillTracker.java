@@ -26,10 +26,21 @@ public class NPCKillTracker {
     static int[] TRACKED_NPC_IDS = {
             // Your existing ones
             15626, // BRUTUS (custom / recent boss?)
-            14176, // YAMA
-            5779, // GIANT_MOLE
-            7222, // Scurriusw
+            7222, // Scurrius
+            252, // KBD
+            NpcID.MOURNING_DARK_BEAST,
+            NpcID.YAMA,
+            NpcID.MOLE_GIANT,
+            NpcID.ARAXXOR,
+            NpcID.SLAYER_KRAKEN,
+            NpcID.CERBERUS_ATTACKING,
             NpcID.VORKATH,
+            NpcID.SUPERIOR_ABYSSAL_DEMON,
+            NpcID.GRYPHON_BOSS, //
+            NpcID.SLAYER_GRYPHON_1, // ?
+            NpcID.SLAYER_GRYPHON_2, // logged
+            NpcID.SUPERIOR_SMOKE_DEVIL,
+            NpcID.SARACHNIS,
     };
 
     private final Client client;
