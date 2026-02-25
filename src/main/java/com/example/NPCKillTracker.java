@@ -28,6 +28,7 @@ public class NPCKillTracker {
             15626, // BRUTUS (custom / recent boss?)
             14176, // YAMA
             5779, // GIANT_MOLE
+            7222, // Scurriusw
             NpcID.VORKATH,
     };
 
