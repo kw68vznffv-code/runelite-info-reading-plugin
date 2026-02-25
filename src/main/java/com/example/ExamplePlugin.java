@@ -5,9 +5,7 @@ import com.google.gson.GsonBuilder;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.clan.ClanChannel;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.*;
 import net.runelite.client.Notifier;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.NpcLootReceived;
@@ -41,9 +39,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @PluginDescriptor(
@@ -121,10 +124,12 @@ public class ExamplePlugin extends Plugin
 		// openBingoSelector();
 	}
 
+	private NPCKillTracker tracker;
 	@Override
 	protected void startUp()
 	{
 		mainPanel = buildMainPanel();
+		tracker = new NPCKillTracker(client, TRACKED_NPC_IDS);
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/icon.png");
 
@@ -276,55 +281,15 @@ public class ExamplePlugin extends Plugin
 		log.debug("================================");
 
 		return;
-		/*
-		if (npc == null || lootItems == null || lootItems.isEmpty())
-		{
-			return;
-		}
-
-		String playerName = client.getLocalPlayer() != null ?
-				client.getLocalPlayer().getName() : "Unknown";
-
-		String clanName = getCurrentClanName();
-
-		List<LootEntry> lootList = new ArrayList<>();
-		long totalValue = 0;
-
-		for (ItemStack stack : lootItems)
-		{
-			int itemId = stack.getId();
-			int qty = stack.getQuantity();
-
-			ItemComposition comp = itemManager.getItemComposition(itemId);
-			if (comp == null) continue;
-
-			String itemName = comp.getName();
-			long gePrice = comp.getPrice();           // GE guide price
-			long itemValue = gePrice * qty;
-			totalValue += itemValue;
-
-			LootEntry entry = new LootEntry(
-					String.valueOf(itemId),
-					itemName,
-					gePrice,
-					qty,
-					npc.getName() != null ? npc.getName() : "NPC #" + npc.getId(),
-					String.valueOf(npc.getId()),
-					Instant.now().atZone(ZoneOffset.UTC).format(UTC_FORMATTER)
-			);
-			lootList.add(entry);
-		}
-
-		if (lootList.isEmpty()) return;
-
-		LootData data = new LootData(playerName, clanName, lootList);
-		String json = gson.toJson(data);
-
-		log.info("Sending loot ({} items, ~{}k gp)", lootList.size(), totalValue / 1000);
-		sendLootAsync(json, totalValue);
-		 */
 	}
 	private int EVENTID_CHAMBERS_OF_XERICS = 1;
+
+
+	//
+	// track last records
+	//
+	NPCKillDetails lastNPCDetails = null;
+	EventDetails eventData = null;
 
 	@Subscribe
 	public void onLootReceived(LootReceived event)
@@ -415,12 +380,9 @@ public class ExamplePlugin extends Plugin
 
 		if (lootList.isEmpty()) return;
 
-
+		/*
 		int inRaid = client.getVarbitValue(RAIDS_CLIENT_ISLEADER);
 		int raidState = client.getVarbitValue(RAIDS_CLIENT_PROGRESS);
-
-
-		EventDetails eventData = null;
 		//
 		//	COX event details data
  		//
@@ -441,13 +403,21 @@ public class ExamplePlugin extends Plugin
 					totalPts
 			);
 		}
-		LootData data = new LootData(client.getWorld(), playerName, clanName, lootList, eventData);
+		*/
+
+
+
+		LootData data = new LootData(client.getWorld(), playerName, clanName, lootList, eventData, lastNPCDetails);
 		String json = gson.toJson(data);
 
 		log.info("Sending loot from {} ({} items, ~{} gp)", sourceName, lootList.size(), totalValue);
 		log.info("Sent data: {}", json);
 
 		sendLootAsync(json, totalValue);
+		// reset last records
+		lastNPCDetails = null;
+		eventData = null;
+
 	}
 
 
@@ -538,14 +508,16 @@ public class ExamplePlugin extends Plugin
 		String clanName;
 		List<LootEntry> lootReceived;
 		EventDetails eventDetais = null;
+		NPCKillDetails npcDetails = null;
 
-		LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais)
+		LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais, NPCKillDetails npcDetails)
 		{
 			this.world = world;
 			this.playerName = playerName;
 			this.clanName = clanName;
 			this.lootReceived = lootReceived;
 			this.eventDetais = eventDetais;
+			this.npcDetails = npcDetails;
 		}
 
 		public LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived) {
@@ -599,6 +571,75 @@ public class ExamplePlugin extends Plugin
 
 
 
+	private final int[] TRACKED_NPC_IDS = tracker.TRACKED_NPC_IDS;
+	@Subscribe
+	public void onNpcSpawned(NpcSpawned event) {
+		tracker.track(event);
+		NPC npc = (NPC) event.getNpc();
+		Set<Integer>  trackableIds = IntStream.of(TRACKED_NPC_IDS).boxed().collect(Collectors.toSet());
+
+		// chat msg if trackable.
+		if( trackableIds.contains( npc.getId() ) ){
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>> Spawned</col>: "
+					+npc.getName()
+					+" ("+npc.getId()+")"
+					+" <col=ff005f>LVL</col> "+npc.getCombatLevel(), null);
+		}
+
+		// debug always
+		log.debug( "--- SPAWNED_NPC_ID / Name: {}/{} (lvl: {})", npc.getId(), npc.getName(), npc.getCombatLevel() );
+	}
+
+	@Subscribe
+	public void onActorDeath(ActorDeath event) {
+		NPC npc = (NPC) event.getActor();
+
+		NPCKillDetails details = tracker.killed(event);  // Returns details or null
+		if (details != null) {
+			String json = details.toJson();  // {"npcId":8063,"name":"Vorkath",...}
+			// Export/use json
+			log.info(details.toString());  // Or overlay/chat
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>> Killed</col>: "
+					+details.getName()
+					+" ("+details.getNpcId()+")"
+					+" <col=ff005f>Time</col>: "+details.getFormattedDuration(), null);
+			lastNPCDetails = details;
+		}
+
+		// debug always
+		log.debug( "--- KILLED_NPC_ID / Name: {}/{}", npc.getId(), npc.getName() );
+		log.debug("--- DETAILED ---");
+			log.debug("Killed NPC: {}, Name: {}, Actor: {}", npc.getId(), npc.getName(), event.getActor());
+			log.debug("NPC String: {}", npc.toString());
+			log.debug("details: {}",  (details != null ? details.toString() : "") );
+		log.debug("--- OEF KILL ---");
+	}
+
+
+	private static final Pattern KC_PATTERN = Pattern.compile(
+			"Your\\s+(.*?)\\s+kill count\\s+(?:is now|is:)\\s*(?:<col=\\w+>)?(\\d+)(?:</col>)?",
+			Pattern.CASE_INSENSITIVE
+	);
+	@Subscribe
+	public void onChatMessage(ChatMessage event) {
+		ChatMessageType type = event.getType();
+		if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.CONSOLE) {
+			return;
+		}
+		log.debug("GAMEMESSAGE_Detected_Chat [{}]: {}", type, event.getMessage());
+
+		String message = event.getMessage();
+		Matcher matcher = KC_PATTERN.matcher(message);
+		if (matcher.find()) {
+			String bossName = matcher.group(1);
+			int newKc = Integer.parseInt(matcher.group(2));
+
+			log.debug("GAMEMESSAGE_Detected KC update [type={}]: {} ({})", type, bossName, newKc);
+
+			tracker.updateKc(bossName, newKc);
+		}
+	}
+
 
 
 
@@ -606,7 +647,7 @@ public class ExamplePlugin extends Plugin
 
 
 	// Varbit IDs (confirmed stable in RuneLite API as of recent versions)
-
+	/*
 	private int IsRaidInProgress = 0;
 	private int LastRaidState = 0;
 	private int personalPoints = 0;
@@ -713,7 +754,7 @@ public class ExamplePlugin extends Plugin
 		}
 
 	}
-
+	*/
 
 
 
