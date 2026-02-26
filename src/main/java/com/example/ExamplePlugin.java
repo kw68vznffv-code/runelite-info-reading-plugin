@@ -444,7 +444,6 @@ public class ExamplePlugin extends Plugin
 			String body = response.body();
 
 			log.info("POST → {} | body: {}", status, body.substring(0, Math.min(180, body.length())));
-
 			if (status >= 200 && status < 300)
 			{
 				if (totalValue >= 1_000_000)

@@ -28,6 +28,7 @@ public class NPCKillTracker {
             15626, // BRUTUS (custom / recent boss?)
             7222, // Scurrius
             252, // KBD
+            NpcID.SAILING_GREAT_WHITE_SHARK,
             NpcID.MOURNING_DARK_BEAST,
             NpcID.YAMA,
             NpcID.MOLE_GIANT,
