@@ -62,7 +62,7 @@ public class ExamplePlugin extends Plugin
 	@Inject private ClientToolbar clientToolbar;
 
 
-	private final String TRACKER_VERSION = "v0.1";
+	private final String TRACKER_VERSION = "v0.2";
 
 	private NavigationButton navButton;
 	private JPanel mainPanel;
@@ -626,10 +626,11 @@ public class ExamplePlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		ChatMessageType type = event.getType();
+
+		log.debug("GAMEMESSAGE_Detected_Chat TYPE_{}: {}", type, event.getMessage());
 		if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.CONSOLE) {
 			return;
 		}
-		log.debug("GAMEMESSAGE_Detected_Chat [{}]: {}", type, event.getMessage());
 
 		String message = event.getMessage();
 		Matcher matcher = KC_PATTERN.matcher(message);
@@ -637,7 +638,7 @@ public class ExamplePlugin extends Plugin
 			String bossName = matcher.group(1);
 			int newKc = Integer.parseInt(matcher.group(2));
 
-			log.debug("GAMEMESSAGE_Detected KC update [type={}]: {} ({})", type, bossName, newKc);
+			log.debug("GAMEMESSAGE_Detected_KC update [type={}]: {} ({})", type, bossName, newKc);
 
 			tracker.updateKc(bossName, newKc);
 		}
