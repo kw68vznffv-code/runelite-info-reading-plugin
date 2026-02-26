@@ -617,7 +617,10 @@ public class ExamplePlugin extends Plugin
 
 
 	private static final Pattern KC_PATTERN = Pattern.compile(
-			"Your\\s+(.*?)\\s+kill count\\s+(?:is now|is:)\\s*(?:<col=\\w+>)?(\\d+)(?:</col>)?",
+			"Your\\s+(.+?)\\s+"                    // name
+			+ "(?:kill\\s*count|success\\s*count|KC|kills?|deaths?|completions?)\\s*"
+			+ "(?::|is\\s*(?:now|at|:))?\\s*"
+			+ "(?:<col=\\w+>)?(\\d+)(?:</col>)?",
 			Pattern.CASE_INSENSITIVE
 	);
 	@Subscribe
