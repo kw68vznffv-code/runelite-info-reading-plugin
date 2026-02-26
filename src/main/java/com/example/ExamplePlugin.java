@@ -62,7 +62,7 @@ public class ExamplePlugin extends Plugin
 	@Inject private ClientToolbar clientToolbar;
 
 
-	private final String TRACKER_VERSION = "v0.2";
+	private final String TRACKER_VERSION = "v0.3";
 
 	private NavigationButton navButton;
 	private JPanel mainPanel;
@@ -328,7 +328,8 @@ public class ExamplePlugin extends Plugin
 
 
 		// Optional: filter to only NPC or EVENT types (raids chests are often EVENT)
-		if (event.getType() != LootRecordType.EVENT && event.getType() != LootRecordType.NPC)
+		int lootType = event.getType().ordinal();
+		if (event.getType() != LootRecordType.EVENT && event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.PLAYER)
 		{
 			return;
 		}
@@ -409,7 +410,7 @@ public class ExamplePlugin extends Plugin
 
 
 
-		LootData data = new LootData(client.getWorld(), playerName, clanName, lootList, eventData, lastNPCDetails);
+		LootData data = new LootData(client.getWorld(), lootType, playerName, clanName, lootList, eventData, lastNPCDetails);
 		String json = gson.toJson(data);
 
 		log.info("Sending loot from {} ({} items, ~{} gp)", sourceName, lootList.size(), totalValue);
@@ -508,13 +509,15 @@ public class ExamplePlugin extends Plugin
 		int world = -1;
 		String playerName;
 		String clanName;
+		int lootType = -1;
 		List<LootEntry> lootReceived;
 		EventDetails eventDetais = null;
 		NPCKillDetails npcDetails = null;
 
-		LootData(int world, String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais, NPCKillDetails npcDetails)
+		LootData(int world, int lootType, String playerName, String clanName, List<LootEntry> lootReceived, EventDetails eventDetais, NPCKillDetails npcDetails)
 		{
 			this.world = world;
+			this.lootType = lootType;
 			this.playerName = playerName;
 			this.clanName = clanName;
 			this.lootReceived = lootReceived;
