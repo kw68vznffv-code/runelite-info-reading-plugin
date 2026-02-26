@@ -628,7 +628,7 @@ public class ExamplePlugin extends Plugin
 		ChatMessageType type = event.getType();
 
 		log.debug("GAMEMESSAGE_Detected_Chat TYPE_{}: {}", type, event.getMessage());
-		if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.CONSOLE) {
+		if (type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.CONSOLE && type != ChatMessageType.SPAM) {
 			return;
 		}
 
