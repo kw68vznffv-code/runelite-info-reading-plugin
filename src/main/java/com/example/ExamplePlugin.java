@@ -61,6 +61,9 @@ public class ExamplePlugin extends Plugin
 	@Inject private ItemManager itemManager;
 	@Inject private ClientToolbar clientToolbar;
 
+
+	private final String TRACKER_VERSION = "v0.1";
+
 	private NavigationButton navButton;
 	private JPanel mainPanel;
 
@@ -568,8 +571,6 @@ public class ExamplePlugin extends Plugin
 	}
 
 
-
-
 	private final int[] TRACKED_NPC_IDS = tracker.TRACKED_NPC_IDS;
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event) {
@@ -579,7 +580,7 @@ public class ExamplePlugin extends Plugin
 
 		// chat msg if trackable.
 		if( trackableIds.contains( npc.getId() ) ){
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>> Spawned</col>: "
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>Spawned_"+TRACKER_VERSION+"</col>: "
 					+npc.getName()
 					+" ("+npc.getId()+")"
 					+" <col=ff005f>LVL</col> "+npc.getCombatLevel(), null);
@@ -598,7 +599,7 @@ public class ExamplePlugin extends Plugin
 			String json = details.toJson();  // {"npcId":8063,"name":"Vorkath",...}
 			// Export/use json
 			log.info(details.toString());  // Or overlay/chat
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>> Killed</col>: "
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff005f>Killed</col>: "
 					+details.getName()
 					+" ("+details.getNpcId()+")"
 					+" <col=ff005f>Time</col>: "+details.getFormattedDuration(), null);
