@@ -284,7 +284,6 @@ public class ExamplePlugin extends Plugin
 	}
 	private int EVENTID_CHAMBERS_OF_XERICS = 1;
 
-
 	//
 	// track last records
 	//
