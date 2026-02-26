@@ -44,6 +44,7 @@ public class NPCKillTracker {
             NpcID.SARACHNIS,
     };
 
+
     private final Client client;
     private final Set<Integer> trackedNpcIds;
     private final Map<NPC, NPCKillDetails> activeKills = new ConcurrentHashMap<>();
