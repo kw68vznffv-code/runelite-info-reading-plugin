@@ -72,7 +72,7 @@ public class ExamplePlugin extends Plugin
 	private static final DateTimeFormatter UTC_FORMATTER =
 			DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC);
 
-	private static final String ENDPOINT = "https://osrs-events.skypro.lt/loot-tracker";
+	private static final String ENDPOINT = "https://osrs-events.skypro.lt/api/?action=loot.tracker";
 
 	private final ExecutorService httpExecutor = Executors.newSingleThreadExecutor();
 
