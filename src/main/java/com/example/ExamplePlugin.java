@@ -132,7 +132,7 @@ public class ExamplePlugin extends Plugin
 	protected void startUp()
 	{
 		mainPanel = buildMainPanel();
-		tracker = new NPCKillTracker(client, TRACKED_NPC_IDS);
+		tracker = new NPCKillTracker(client, NPCKillTracker.TRACKED_NPC_IDS);
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/icon.png");
 

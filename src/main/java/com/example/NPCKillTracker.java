@@ -28,6 +28,10 @@ public class NPCKillTracker {
             15626, // BRUTUS (custom / recent boss?)
             7222, // Scurrius
             252, // KBD
+            13685,      // Amoxliatl (primary)
+            13686,      // Amoxliatl variant/phase
+            13687,      // Amoxliatl variant/phase
+            13689,      // Amoxliatl variant/phase (often death/transition)
             NpcID.SAILING_GREAT_WHITE_SHARK,
             NpcID.MOURNING_DARK_BEAST,
             NpcID.YAMA,
@@ -99,10 +103,20 @@ public class NPCKillTracker {
             return null;
         }
 
+        // need to do console log message to see whicj npc was killed and if it was trackable.
+
         final NPCKillDetails details = activeKills.remove(npc);
         if (details == null) {
             return null;
         }
+
+        // Debug: always log deaths to see what ID actually died
+        System.out.println("[NPCKillTracker.killed] Death detected: " +
+                (npc.getName() != null ? npc.getName() : "Unnamed") +
+                " (ID=" + npc.getId() +
+                ", index=" + npc.getIndex() +
+                ", isDead=" + npc.isDead() +
+                ", tracked? " + trackedNpcIds.contains(npc.getId()) + ")");
 
         details.setKillTime(Instant.now());
         details.setDurationMs(Duration.between(details.getStartTime(), details.getKillTime()).toMillis());
